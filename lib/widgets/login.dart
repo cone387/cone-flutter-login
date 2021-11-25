@@ -51,6 +51,7 @@ class Account{
     username = json['username'];
     password = json['password'];
   }
+
 }
 
 
@@ -58,28 +59,26 @@ class AccountManager{
   // ignore: non_constant_identifier_names
   final String ACCOUNTS = 'loginAccounts';
 
-  final List<Account> _accounts = const [];
+  // ignore: prefer_final_fields
+  List<Account> items = [];
 
-  const AccountManager();
 
-  onCreate(){
-    loadAccounts();
+  void addAccount(Account account){
+    items.removeWhere((element) => element.username == account.username);
+    items.insert(0, account); saveAccounts();
   }
 
-  onDestory(){
-    saveAccounts();
-  }
 
   Account? get recentAccount{
-    if(_accounts.isNotEmpty){
-      return _accounts.last;
+    if(items.isNotEmpty){
+      return items.last;
     }
   }
 
   List<Account> relevantAccounts({String? username}){
     List<Account> accounts = [];
     if(username != null && username.isNotEmpty){
-      for (var element in _accounts) {
+      for (var element in accounts) {
         if(element.username.contains(username)){
           accounts.add(element);
         }
@@ -90,16 +89,16 @@ class AccountManager{
 
   saveAccounts() async{
     final prefs = await SharedPreferences.getInstance();
-    prefs.setString(ACCOUNTS, jsonEncode(_accounts));
+    prefs.setString(ACCOUNTS, jsonEncode(items));
   }
 
-  loadAccounts() async{
+  Future loadAccounts() async{
     final prefs = await SharedPreferences.getInstance();
     var accountsString = prefs.getString(ACCOUNTS);
     if(accountsString != null){
       List accounts = jsonDecode(accountsString);
       for (var element in accounts) {
-        _accounts.add(Account.fromJson(element));
+        items.add(Account.fromJson(element));
       }
     }
   }
@@ -121,7 +120,7 @@ class LoginPage extends StatefulWidget {
     this.userValidator,
     this.passwordValidator = validators.passwordValidator,
     this.onSubmitAnimationCompleted,
-    this.accountManager = const AccountManager(),
+    this.accountManager,
     this.logoTag,
     this.loginType = LoginType.email,
     this.titleTag,
@@ -206,12 +205,37 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
 
+  AccountManager? _accountManager;
+
   bool obscureText = true;
+  bool _expand = false;
+  GlobalKey _globalKey = new GlobalKey();
   Color eyeColor = Colors.grey;
   final formKey = GlobalKey<FormState>();
 
-  String? _username;
-  String? _password;
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  initState(){
+    super.initState();
+    accountManager.loadAccounts().then((value){
+      Account? recentAccount = accountManager.recentAccount;
+      if(recentAccount != null){
+        _usernameController.text = recentAccount.username;
+        _passwordController.text = recentAccount.password;
+      }
+      
+    });
+    
+  }
+
+  AccountManager get accountManager{
+    if(_accountManager == null && widget.accountManager == null){
+      _accountManager = AccountManager();
+    }
+    return _accountManager!;
+  }
 
   FormFieldValidator<String> get userValidator{
     if(widget.userValidator == null){
@@ -228,15 +252,21 @@ class _LoginPageState extends State<LoginPage> {
 
   TextFormField usernameInput(){
     return TextFormField(
+      key: _globalKey,
       // onSaved: (String value) => _pwd = value,
       onTap: (){
-        
+        if (accountManager.items.length >= 1) {
+        //如果个数大于1个或者唯一一个账号跟当前账号不一样才弹出历史账号
+        setState(() {
+          _expand = !_expand;
+        });
+        }
       },
       onChanged: (String? username){
 
       },
-      onSaved: (String? username) => _username = username,
-      maxLength: 11,
+      controller: _usernameController,
+      maxLength: 30,
       decoration: const InputDecoration(
         labelText: '用户名',
       ),
@@ -247,7 +277,7 @@ class _LoginPageState extends State<LoginPage> {
   TextFormField passworddInput(){
     return TextFormField(
       obscureText: obscureText,
-      onSaved: (String? value) => _password = value,
+      controller: _passwordController,
       validator: widget.passwordValidator,
       decoration: InputDecoration(
         labelText: '密码',
@@ -278,7 +308,9 @@ class _LoginPageState extends State<LoginPage> {
           onPressed: (){
             if(formKey.currentState!.validate()){
               formKey.currentState!.save();
-              widget.onLogin(Account(_username!, _password!));
+              Account account = Account(_usernameController.text, _passwordController.text);
+              accountManager.addAccount(account);
+              widget.onLogin(account);
             }
           }
           
@@ -361,23 +393,106 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Card(
-          child: Form(
-            key: formKey,
-            child: Column(
-              children: [
-                usernameInput(),
-                passworddInput(),
-                loginButton(),
-                forgetPasswordButton(),
-                registerButton(),
-                thirdPartyLoginWidgets()
-              ],
+      body: Stack(
+        children: 
+          [Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(left: 20, right: 20),
+              child: Card(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    children: [
+                      usernameInput(),
+                      passworddInput(),
+                      loginButton(),
+                      forgetPasswordButton(),
+                      registerButton(),
+                      thirdPartyLoginWidgets()
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
+          Offstage(
+            child: _buildListView(),
+            offstage: !_expand,
+          ),
+
+        ],
       ),
     );
   }
+
+  Widget _buildItem(Account account) {
+    return GestureDetector(
+      child: Container(
+        child: Flex(
+          direction: Axis.horizontal,
+          children: <Widget>[
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 5),
+                child: Text(account.username),
+              ),
+            ),
+            GestureDetector(
+              child: const Padding(
+                padding:  EdgeInsets.only(right: 5),
+                child: Icon(
+                  Icons.highlight_off,
+                  color: Colors.grey,
+                ),
+              ),
+              onTap: () {
+
+              },
+            ),
+          ],
+        ),
+      ),
+      onTap: () {
+        setState(() {
+          _expand = false;
+        });
+      },
+    );
+  }
+
+
+  Widget _buildListView() {
+    if (_expand) {
+      List<Widget> children = accountManager.items.map((e) => _buildItem(e)).toList();
+      if (children.isNotEmpty) {
+         RenderBox? renderObject = _globalKey.currentContext?.findRenderObject() as RenderBox?;
+        final position = renderObject!.localToGlobal(Offset.zero);
+        double screenW = MediaQuery.of(context).size.width;
+        double currentW = renderObject.paintBounds.size.width;
+        double currentH = renderObject.paintBounds.size.height;
+        double margin = (screenW - currentW) / 2;
+        double offsetY = position.dy;
+        double itemHeight = 30.0;
+        double dividerHeight = 2;
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(5.0),
+            border: Border.all(color: Colors.blue, width: 2),
+          ),
+          child: ListView(
+            itemExtent: itemHeight,
+            padding: const EdgeInsets.all(0),
+            children: children,
+          ),
+          width: currentW,
+          height: (children.length * itemHeight +
+              (children.length - 1) * dividerHeight),
+          margin: EdgeInsets.fromLTRB(margin, offsetY + currentH, margin, 0),
+        );
+      }
+    }
+    return Container();
+  }
+
 }
