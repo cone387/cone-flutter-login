@@ -1,4 +1,6 @@
+import 'package:cone_flutter_login/router.dart';
 import 'package:cone_flutter_login/widgets/login.dart';
+import 'package:cone_flutter_login/widgets/register.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -12,6 +14,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      // routes: {
+      //   Routes.LOGIN: (context) => LoginPage(
+      //     onRegister: (account) async{}, 
+      //     onLogin: (account) async{print("登录成功");}, 
+      //     onRecoverPassword: (account) async{return '';}
+      //   ),
+      //   Routes.REGISTER: (BuildContext context) => RegisterPage(
+      //     userValidator: userValidator, 
+      //     passwordValidator: passwordValidator)
+      // },
       showSemanticsDebugger: false,
       title: 'Flutter Demo',
       theme: ThemeData(
@@ -26,9 +38,10 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
+      // initialRoute: Routes.LOGIN,
       home: LoginPage(
-        onRegister: (account) async{return '';}, 
-        onLogin: (account) async{return '';}, 
+        onRegister: (account) async{}, 
+        onLogin: (account) async{print("登录成功");}, 
         onRecoverPassword: (account) async{return '';}),
     );
   }

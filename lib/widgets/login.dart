@@ -5,7 +5,10 @@
 
 import 'dart:convert';
 
+import 'package:cone_flutter_login/types/account.dart';
+import 'package:cone_flutter_login/types/types.dart';
 import 'package:cone_flutter_login/validators/validators.dart' as validators;
+import 'package:cone_flutter_login/widgets/register.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,9 +19,9 @@ enum LoginType{
   phone
 }
 
-typedef AuthCallback = Future<String> Function(Account account);
-typedef ProviderAuthCallback = Future<String> Function();
-typedef RecoverCallback = Future<String> Function(String);
+// typedef AuthCallback = Future<String?> Function(Account account);
+// typedef ProviderAuthCallback = Future<String> Function();
+// typedef RecoverCallback = Future<String> Function(String);
 
 
 class LoginProvider {
@@ -36,23 +39,23 @@ abstract class BaseAccountManager{
   
 }
 
-class Account{
-  late String username;
-  late String password;
-  int loginTimes = 1;
+// class Account{
+//   late String username;
+//   late String password;
+//   int loginTimes = 1;
 
-  Account(this.username, this.password);
+//   Account(this.username, this.password);
 
-  toJson(){
-    return {'username': username, 'password': password};
-  }
+//   toJson(){
+//     return {'username': username, 'password': password};
+//   }
 
-  Account.fromJson(json){
-    username = json['username'];
-    password = json['password'];
-  }
+//   Account.fromJson(json){
+//     username = json['username'];
+//     password = json['password'];
+//   }
 
-}
+// }
 
 
 class AccountManager{
@@ -71,8 +74,19 @@ class AccountManager{
 
   Account? get recentAccount{
     if(items.isNotEmpty){
-      return items.last;
+      return items.first;
     }
+  }
+
+  setRecentAccountIndex(index){
+    var a = items.removeAt(index);
+    items.insert(0, a); saveAccounts();
+  }
+
+  Account deleteAccountByIndex(index){
+    Account a = items.removeAt(index);
+    saveAccounts();
+    return a;
   }
 
   List<Account> relevantAccounts({String? username}){
@@ -107,6 +121,77 @@ class AccountManager{
 }
 
 
+class AccountListWidget extends StatefulWidget {
+  const AccountListWidget({
+    Key? key, 
+    required this.accountManager,
+    this.onCurrentIndexChanged,
+    this.margin,
+
+  }) : super(key: key);
+
+  final EdgeInsetsGeometry? margin;
+  final AccountManager accountManager;
+  final void Function(Account account)? onCurrentIndexChanged;
+
+  @override
+  _AccountListWidgetState createState() => _AccountListWidgetState();
+}
+
+class _AccountListWidgetState extends State<AccountListWidget> {
+  @override
+  Widget build(BuildContext context) {
+    List<Account> accounts = widget.accountManager.items;
+    // RenderBox? renderObject = _globalKey.currentContext?.findRenderObject() as RenderBox?;
+    // final position = renderObject!.localToGlobal(Offset.zero);
+    // double screenW = MediaQuery.of(context).size.width;
+    // double currentW = renderObject.paintBounds.size.width;
+    // double currentH = renderObject.paintBounds.size.height;
+    // double margin = (screenW - currentW) / 2;
+    // double offsetY = position.dy;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.blue,
+          borderRadius: BorderRadius.circular(5.0),
+          border: Border.all(color: Colors.white, width: 2),
+        ),
+        child: ListView.separated(
+            itemBuilder: (context, index){
+              return ListTile(
+                onTap: (){
+                  setState(() {
+                    widget.accountManager.setRecentAccountIndex(index);
+                  });
+                  widget.onCurrentIndexChanged?.call(accounts[index]);
+                },
+                title: Text(accounts[index].username),
+                trailing: IconButton(onPressed: (){
+                  setState(() {
+                    widget.accountManager.deleteAccountByIndex(index);
+                  });
+                }, icon: const Icon(
+                  Icons.highlight_off,
+                  color: Colors.black,
+                )),
+              );
+            }, 
+            separatorBuilder: (context, index){
+              return const Divider(height: 1, color: Colors.grey,);
+            }, 
+          shrinkWrap: true,
+          itemCount: accounts.length,
+          padding: const EdgeInsets.all(0),
+        ),
+        // width: currentW,
+        // height: (accountManager.items.length * 2 * itemHeight +
+        //     (accountManager.items.length - 1) * dividerHeight),
+        margin: widget.margin,
+      );
+  }
+}
+
+
+
 class LoginPage extends StatefulWidget {
   const LoginPage({
     Key? key, 
@@ -127,7 +212,7 @@ class LoginPage extends StatefulWidget {
     this.loginProviders = const <LoginProvider>[],
     this.hideForgotPasswordButton = false,
     this.hideSignUpButton = false,
-    this.loginAfterSignUp = true,
+    this.loginAfterRegister = true,
     this.navigateBackAfterRecovery = false
   }): super(key: key);
 
@@ -194,7 +279,7 @@ class LoginPage extends StatefulWidget {
   final bool hideSignUpButton;
 
   /// Set to false to return back to sign in page after successful sign up
-  final bool loginAfterSignUp;
+  final bool loginAfterRegister;
 
   /// Navigate back to the login screen after recovery of password.
   final bool navigateBackAfterRecovery;
@@ -209,7 +294,7 @@ class _LoginPageState extends State<LoginPage> {
 
   bool obscureText = true;
   bool _expand = false;
-  GlobalKey _globalKey = new GlobalKey();
+  final GlobalKey _globalKey = GlobalKey();
   Color eyeColor = Colors.grey;
   final formKey = GlobalKey<FormState>();
 
@@ -253,22 +338,21 @@ class _LoginPageState extends State<LoginPage> {
   TextFormField usernameInput(){
     return TextFormField(
       key: _globalKey,
-      // onSaved: (String value) => _pwd = value,
-      onTap: (){
-        if (accountManager.items.length >= 1) {
-        //如果个数大于1个或者唯一一个账号跟当前账号不一样才弹出历史账号
-        setState(() {
-          _expand = !_expand;
-        });
-        }
-      },
-      onChanged: (String? username){
-
-      },
       controller: _usernameController,
       maxLength: 30,
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
+        border: const OutlineInputBorder(),
         labelText: '用户名',
+        suffixIcon: InkWell(
+          onTap: (){
+            setState(() {_expand = !_expand;});
+          },
+          child: Icon(_expand? Icons.arrow_drop_up: Icons.arrow_drop_down),),
+        // suffix: IconButton(onPressed: (){
+        //   setState(() {
+        //     _expand = !_expand;
+        //   });
+        // }, icon: Icon(_expand? Icons.arrow_drop_up: Icons.arrow_drop_down))
       ),
       validator: userValidator,
     );
@@ -280,6 +364,7 @@ class _LoginPageState extends State<LoginPage> {
       controller: _passwordController,
       validator: widget.passwordValidator,
       decoration: InputDecoration(
+        border: const OutlineInputBorder(),
         labelText: '密码',
         suffixIcon: IconButton(
             icon: Icon(Icons.remove_red_eye, color: eyeColor),
@@ -295,27 +380,26 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget loginButton(){
-    return Align(
-      child: SizedBox(
-        width: 300.0,
-        height: 50.0,
-        child: TextButton(
-          child: const Text('登录', style: TextStyle(color: Colors.white),),
-          style: ButtonStyle(
-            backgroundColor: MaterialStateProperty.all(Colors.blueAccent,),
-            shape: MaterialStateProperty.all(const StadiumBorder(side: BorderSide(color: Colors.blueAccent))),
-          ),
-          onPressed: (){
-            if(formKey.currentState!.validate()){
-              formKey.currentState!.save();
-              Account account = Account(_usernameController.text, _passwordController.text);
-              accountManager.addAccount(account);
-              widget.onLogin(account);
+    return Row(
+      children: [
+        Expanded(
+          child: TextButton(
+            child: const Text('登录', style: TextStyle(color: Colors.white),),
+            style: ButtonStyle(
+              backgroundColor: MaterialStateProperty.all(Colors.blueAccent,),
+              shape: MaterialStateProperty.all(const StadiumBorder(side: BorderSide(color: Colors.blueAccent))),
+            ),
+            onPressed: (){
+              if(formKey.currentState!.validate()){
+                Account account = Account(_usernameController.text, _passwordController.text);
+                accountManager.addAccount(account);
+                widget.onLogin(account);
+              }
             }
-          }
-          
+            
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -345,6 +429,21 @@ class _LoginPageState extends State<LoginPage> {
           child: Text('没有账号？点击注册'),
         ),
         onTap: (){
+          Navigator.of(context).push(MaterialPageRoute(builder: (context){
+            return RegisterPage(userValidator: userValidator, 
+              passwordValidator: widget.passwordValidator,
+              onRegister: (account) async{
+                String? value = await widget.onRegister(account);
+                if(value == null && widget.loginAfterRegister){
+                  setState(() {
+                    accountManager.addAccount(account);
+                  });
+                  Navigator.of(context).pop();
+                }
+                return value;
+              },
+              loginAfterRegister: widget.loginAfterRegister);
+          }));
         },
       ),
     );
@@ -392,6 +491,11 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    Account? recentAccount = accountManager.recentAccount;
+    if(recentAccount != null){
+      _usernameController.text = recentAccount.username;
+      _passwordController.text = recentAccount.password;
+    }
     return Scaffold(
       body: Stack(
         children: 
@@ -446,7 +550,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               onTap: () {
-
               },
             ),
           ],
@@ -462,37 +565,72 @@ class _LoginPageState extends State<LoginPage> {
 
 
   Widget _buildListView() {
-    if (_expand) {
-      List<Widget> children = accountManager.items.map((e) => _buildItem(e)).toList();
-      if (children.isNotEmpty) {
-         RenderBox? renderObject = _globalKey.currentContext?.findRenderObject() as RenderBox?;
-        final position = renderObject!.localToGlobal(Offset.zero);
-        double screenW = MediaQuery.of(context).size.width;
-        double currentW = renderObject.paintBounds.size.width;
-        double currentH = renderObject.paintBounds.size.height;
-        double margin = (screenW - currentW) / 2;
-        double offsetY = position.dy;
-        double itemHeight = 30.0;
-        double dividerHeight = 2;
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(5.0),
-            border: Border.all(color: Colors.blue, width: 2),
-          ),
-          child: ListView(
-            itemExtent: itemHeight,
-            padding: const EdgeInsets.all(0),
-            children: children,
-          ),
-          width: currentW,
-          height: (children.length * itemHeight +
-              (children.length - 1) * dividerHeight),
-          margin: EdgeInsets.fromLTRB(margin, offsetY + currentH, margin, 0),
-        );
-      }
+    if(_expand){
+      RenderBox? renderObject = _globalKey.currentContext?.findRenderObject() as RenderBox?;
+      final position = renderObject!.localToGlobal(Offset.zero);
+      double screenW = MediaQuery.of(context).size.width;
+      double currentW = renderObject.paintBounds.size.width;
+      double currentH = renderObject.paintBounds.size.height;
+      double margin = (screenW - currentW) / 2;
+      double offsetY = position.dy;
+      // double itemHeight = 30.0;
+      // double dividerHeight = 2;
+      return AccountListWidget(accountManager: accountManager,
+        margin: EdgeInsets.fromLTRB(margin, offsetY + currentH, margin, 0),
+        onCurrentIndexChanged: (_){setState(() {
+          _expand = !_expand;
+        });},
+      );
     }
     return Container();
+    // List<Account> accounts = accountManager.items;
+    // if (_expand) {
+    //   if (accounts.isNotEmpty) {
+    //     RenderBox? renderObject = _globalKey.currentContext?.findRenderObject() as RenderBox?;
+    //     final position = renderObject!.localToGlobal(Offset.zero);
+    //     double screenW = MediaQuery.of(context).size.width;
+    //     double currentW = renderObject.paintBounds.size.width;
+    //     double currentH = renderObject.paintBounds.size.height;
+    //     double margin = (screenW - currentW) / 2;
+    //     double offsetY = position.dy;
+    //     double itemHeight = 30.0;
+    //     double dividerHeight = 2;
+    //     return Container(
+    //       decoration: BoxDecoration(
+    //         color: Colors.blue,
+    //         borderRadius: BorderRadius.circular(5.0),
+    //         border: Border.all(color: Colors.white, width: 2),
+    //       ),
+    //       child: ListView.separated(
+    //           itemBuilder: (context, index){
+    //             return ListTile(
+    //               onTap: (){
+
+    //               },
+    //               title: Text(accounts[index].username),
+    //               trailing: IconButton(onPressed: (){
+
+    //               }, icon: const Icon(
+    //                 Icons.highlight_off,
+    //                 color: Colors.black,
+    //               )),
+    //             );
+    //           }, 
+    //           separatorBuilder: (context, index){
+    //             return const Divider(height: 1, color: Colors.grey,);
+    //           }, 
+    //         shrinkWrap: true,
+    //         itemCount: accountManager.items.length,
+    //         padding: const EdgeInsets.all(0),
+    //       ),
+    //       // width: currentW,
+    //       // height: (accountManager.items.length * 2 * itemHeight +
+    //       //     (accountManager.items.length - 1) * dividerHeight),
+    //       margin: EdgeInsets.fromLTRB(margin, offsetY + currentH, margin, 0),
+    //     );
+    //   }
+    // }
+    // return Container();
   }
 
 }
