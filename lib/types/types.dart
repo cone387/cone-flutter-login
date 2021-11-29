@@ -9,4 +9,3 @@ enum LoginType{
 
 typedef AuthCallback = Future<String?> Function(Account account);
 typedef ProviderAuthCallback = Future<String> Function();
-typedef RecoverCallback = Future<String> Function(String);

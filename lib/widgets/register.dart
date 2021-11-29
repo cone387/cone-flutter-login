@@ -89,11 +89,6 @@ class _RegisterPageState extends State<RegisterPage> {
               if(formKey.currentState!.validate()){
                 Account account = Account(_usernameController.text, _password1Controller.text);
                 widget.onRegister(account);
-                // .then((value){
-                //   if(value == null && widget.loginAfterRegister){
-                //     Navigator.of(context).pop();
-                //   }
-                // });
               }
             }
             

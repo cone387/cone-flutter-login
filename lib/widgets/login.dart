@@ -8,6 +8,8 @@ import 'dart:convert';
 import 'package:cone_flutter_login/types/account.dart';
 import 'package:cone_flutter_login/types/types.dart';
 import 'package:cone_flutter_login/validators/validators.dart' as validators;
+import 'recover_password/recover_password.dart';
+import 'package:cone_flutter_login/widgets/recover_password/username_verify.dart';
 import 'package:cone_flutter_login/widgets/register.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -235,7 +237,7 @@ class LoginPage extends StatefulWidget {
   final List<LoginProvider> loginProviders;
 
   /// Called when the user hit the submit button when in recover password mode
-  final RecoverCallback onRecoverPassword;
+  final void Function() onRecoverPassword;
 
   /// The large text above the login [Card], usually the app or company name
   final String? title;
@@ -411,8 +413,7 @@ class _LoginPageState extends State<LoginPage> {
         child: GestureDetector(
           child: const Text('忘记密码？'),
           onTap: (){
-            // ignore: avoid_print
-            print('forget password');
+            widget.onRecoverPassword();
           },
         )
       ),
@@ -529,41 +530,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildItem(Account account) {
-    return GestureDetector(
-      child: Container(
-        child: Flex(
-          direction: Axis.horizontal,
-          children: <Widget>[
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 5),
-                child: Text(account.username),
-              ),
-            ),
-            GestureDetector(
-              child: const Padding(
-                padding:  EdgeInsets.only(right: 5),
-                child: Icon(
-                  Icons.highlight_off,
-                  color: Colors.grey,
-                ),
-              ),
-              onTap: () {
-              },
-            ),
-          ],
-        ),
-      ),
-      onTap: () {
-        setState(() {
-          _expand = false;
-        });
-      },
-    );
-  }
-
-
   Widget _buildListView() {
     if(_expand){
       RenderBox? renderObject = _globalKey.currentContext?.findRenderObject() as RenderBox?;
@@ -583,54 +549,6 @@ class _LoginPageState extends State<LoginPage> {
       );
     }
     return Container();
-    // List<Account> accounts = accountManager.items;
-    // if (_expand) {
-    //   if (accounts.isNotEmpty) {
-    //     RenderBox? renderObject = _globalKey.currentContext?.findRenderObject() as RenderBox?;
-    //     final position = renderObject!.localToGlobal(Offset.zero);
-    //     double screenW = MediaQuery.of(context).size.width;
-    //     double currentW = renderObject.paintBounds.size.width;
-    //     double currentH = renderObject.paintBounds.size.height;
-    //     double margin = (screenW - currentW) / 2;
-    //     double offsetY = position.dy;
-    //     double itemHeight = 30.0;
-    //     double dividerHeight = 2;
-    //     return Container(
-    //       decoration: BoxDecoration(
-    //         color: Colors.blue,
-    //         borderRadius: BorderRadius.circular(5.0),
-    //         border: Border.all(color: Colors.white, width: 2),
-    //       ),
-    //       child: ListView.separated(
-    //           itemBuilder: (context, index){
-    //             return ListTile(
-    //               onTap: (){
-
-    //               },
-    //               title: Text(accounts[index].username),
-    //               trailing: IconButton(onPressed: (){
-
-    //               }, icon: const Icon(
-    //                 Icons.highlight_off,
-    //                 color: Colors.black,
-    //               )),
-    //             );
-    //           }, 
-    //           separatorBuilder: (context, index){
-    //             return const Divider(height: 1, color: Colors.grey,);
-    //           }, 
-    //         shrinkWrap: true,
-    //         itemCount: accountManager.items.length,
-    //         padding: const EdgeInsets.all(0),
-    //       ),
-    //       // width: currentW,
-    //       // height: (accountManager.items.length * 2 * itemHeight +
-    //       //     (accountManager.items.length - 1) * dividerHeight),
-    //       margin: EdgeInsets.fromLTRB(margin, offsetY + currentH, margin, 0),
-    //     );
-    //   }
-    // }
-    // return Container();
   }
 
 }
